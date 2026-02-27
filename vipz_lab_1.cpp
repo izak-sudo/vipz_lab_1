@@ -1,11 +1,11 @@
 #include <iostream>
 #include <fstream>
-#include <cstring>
+#include <string>
 #include <iomanip>
 
 struct Book {
-    char mAuthor[20];
-    char mNameBook[20];
+    std::string mAuthor;
+    std::string mNameBook;
     int mYear;
     int mPages;
     int mPrice;
@@ -16,173 +16,163 @@ struct Node {
     Node* mpNext;
 };
 
-void sortYear(Node** ppHead, int count) {
-    if (*ppHead == nullptr) { return; }
-    if (count < 2) { return; }
-
-    for (int i = 0; i < count - 1; i++) {
-        Node* pTemp = *(ppHead);
-        Node* pPrevNode = nullptr;
-        Node* pNextNode = nullptr;
-
-        while (pTemp->mpNext != nullptr) {
-            pNextNode = pTemp->mpNext;
-
-            if ((pTemp->mpInfo.mYear) > (pTemp->mpNext->mpInfo.mYear)) {
-                pTemp->mpNext = pNextNode->mpNext;
-                pNextNode->mpNext = pTemp;
-
-                if (pPrevNode == nullptr) { *ppHead = pNextNode; }
-                else { pPrevNode->mpNext = pNextNode; }
-
-                pPrevNode = pNextNode;
-            }
-            else {
-                pPrevNode = pTemp;
-                pTemp = pTemp->mpNext;
-            }
-        }
-    }
-}
-
-void deleteNode(Node** ppHead, int count) {
-    Node* pTemp = *ppHead;
-    Node* pPrevNode = nullptr;
-    while (pTemp != nullptr) {
-
-        if ((pTemp->mpInfo.mAuthor[0]) == 'K') {
-            Node* pNodeToDelete = pTemp;
-
-            if (pPrevNode == nullptr) {
-                *ppHead = pTemp->mpNext;
-                pTemp = *ppHead;
-            }
-            else {
-                pPrevNode->mpNext = pTemp->mpNext;
-                pTemp = pTemp->mpNext;
-            }
-
-            delete pNodeToDelete;
-        }
-        else {
-            pPrevNode = pTemp;
-            pTemp = pTemp->mpNext;
-        }
-    }
-}
-
-void ListAddElem(Node** ppHead, Node* pElem) {
-
-    if (*ppHead == nullptr) {
-        pElem->mpNext = *ppHead;
-        *ppHead = pElem;
-        return;
-    }
-    if (pElem->mpInfo.mYear < (*ppHead)->mpInfo.mYear) {
-        pElem->mpNext = *ppHead;
-        *ppHead = pElem;
+// Передаємо вказівник за посиланням (Node*&), щоб мати змогу змінювати голову списку
+void sortYear(Node*& head) {
+    if (head == nullptr || head->mpNext == nullptr) {
         return;
     }
 
-    Node* pTemp = *ppHead;
-    while (pTemp->mpNext != nullptr && pTemp->mpNext->mpInfo.mYear < pElem->mpInfo.mYear) {
-        pTemp = pTemp->mpNext;
-    }
-    pElem->mpNext = pTemp->mpNext;
-    pTemp->mpNext = pElem;
+    bool swapped;
+    do {
+        swapped = false;
+        Node* curr = head;
+        Node* prev = nullptr;
 
+        while (curr->mpNext != nullptr) {
+            Node* nextNode = curr->mpNext;
+
+            if (curr->mpInfo.mYear > nextNode->mpInfo.mYear) {
+                // Переприв'язуємо вказівники
+                curr->mpNext = nextNode->mpNext;
+                nextNode->mpNext = curr;
+
+                if (prev == nullptr) {
+                    head = nextNode; // Оновлюємо голову, якщо змінили перший елемент
+                } else {
+                    prev->mpNext = nextNode;
+                }
+
+                prev = nextNode; // curr залишається тим самим об'єктом, змістився лише prev
+                swapped = true;
+            } else {
+                prev = curr;
+                curr = curr->mpNext;
+            }
+        }
+    } while (swapped);
 }
 
-void freeList(Node** ppHead) {
-    Node* pTemp = *ppHead;
-    Node* pNext;
+void deleteByAuthor(Node*& head, char targetLetter) {
+    Node* curr = head;
+    Node* prev = nullptr;
 
-    while (pTemp != nullptr) {
-        pNext = pTemp->mpNext;
-        delete pTemp;
-        pTemp = pNext;
+    while (curr != nullptr) {
+        // Перевіряємо, чи рядок не порожній і чи починається на задану літеру
+        if (!curr->mpInfo.mAuthor.empty() && curr->mpInfo.mAuthor[0] == targetLetter) {
+            Node* nodeToDelete = curr;
+
+            if (prev == nullptr) {
+                head = curr->mpNext;
+                curr = head;
+            } else {
+                prev->mpNext = curr->mpNext;
+                curr = curr->mpNext;
+            }
+
+            delete nodeToDelete;
+        } else {
+            prev = curr;
+            curr = curr->mpNext;
+        }
     }
-    *ppHead = nullptr;
+}
+
+// Нова реалізована функція додавання, яка сама створює вузол
+void insertNewBook(Node*& head, const Book& newBookData) {
+    Node* newNode = new Node;
+    newNode->mpInfo = newBookData;
+    newNode->mpNext = nullptr;
+
+    // Якщо список порожній або новий елемент має бути першим
+    if (head == nullptr || newBookData.mYear < head->mpInfo.mYear) {
+        newNode->mpNext = head;
+        head = newNode;
+        return;
+    }
+
+    // Шукаємо позицію для вставки
+    Node* temp = head;
+    while (temp->mpNext != nullptr && temp->mpNext->mpInfo.mYear <= newBookData.mYear) {
+        temp = temp->mpNext;
+    }
+
+    newNode->mpNext = temp->mpNext;
+    temp->mpNext = newNode;
+}
+
+void freeList(Node*& head) {
+    Node* temp = head;
+    while (temp != nullptr) {
+        Node* next = temp->mpNext;
+        delete temp;
+        temp = next;
+    }
+    head = nullptr;
 }
 
 void printList(Node* pHead) {
     std::cout << "\n";
-    std::cout << "Author \t\t Name of book \t\t Year \t Pages \t Price\n";
-    std::cout << "-----------------------------------------------------\n";
+    std::cout << std::left << std::setw(15) << "Author"
+              << std::setw(15) << "Name of book"
+              << std::setw(10) << "Year"
+              << std::setw(10) << "Pages"
+              << std::setw(10) << "Price" << "\n";
+    std::cout << "------------------------------------------------------------\n";
+    
     while (pHead != nullptr) {
-        std::cout << std::left << std::setw(15) << pHead->mpInfo.mAuthor << " "
-            << std::left << std::setw(15) << pHead->mpInfo.mNameBook << " \t "
-            << pHead->mpInfo.mYear << " \t "
-            << pHead->mpInfo.mPages << " \t "
-            << pHead->mpInfo.mPrice << "\n";
-
+        std::cout << std::left << std::setw(15) << pHead->mpInfo.mAuthor
+                  << std::setw(15) << pHead->mpInfo.mNameBook
+                  << std::setw(10) << pHead->mpInfo.mYear
+                  << std::setw(10) << pHead->mpInfo.mPages
+                  << std::setw(10) << pHead->mpInfo.mPrice << "\n";
         pHead = pHead->mpNext;
     }
 }
 
 int main() {
     std::ifstream file("file.txt");
-    if (!file.is_open())
-    {
+    if (!file.is_open()) {
         std::cerr << "File not opened." << std::endl;
         return 1;
     }
 
-    Node* pHead = nullptr;
-    Node* pLast = nullptr;
-    int count = 0;
-
+    Node* head = nullptr;
+    Node* tail = nullptr;
     Book tempBook;
+
     while (file >> tempBook.mAuthor >> tempBook.mNameBook >> tempBook.mYear >> tempBook.mPages >> tempBook.mPrice) {
+        Node* newNode = new Node;
+        newNode->mpInfo = tempBook;
+        newNode->mpNext = nullptr;
 
-        Node* pNode = new Node;
-        if (!pNode) { return 1; }
-
-        pNode->mpInfo = tempBook;
-        pNode->mpNext = nullptr;
-
-        if (pHead == nullptr) {
-            pHead = pNode;
-            pLast = pNode;
+        if (head == nullptr) {
+            head = newNode;
+            tail = newNode;
+        } else {
+            tail->mpNext = newNode;
+            tail = newNode;
         }
-        else {
-            pLast->mpNext = pNode;
-            pLast = pNode;
-        }
-        count++;
-
-        Node* pNodeLast;
-        pNodeLast = pNode;
-        pNodeLast->mpNext = nullptr;
     }
-
     file.close();
 
-    std::cout << "After Sorting";
-    sortYear(&pHead, count);
-    printList(pHead);
+    std::cout << "--- Initial Data (Unsorted) ---";
+    printList(head);
 
-    std::cout << "\nAfter Deleting";
-    deleteNode(&pHead, count);
-    printList(pHead);
+    std::cout << "\n--- After Sorting by Year ---";
+    sortYear(head);
+    printList(head);
 
-    Node* pElem = new Node;
-    if (pElem == nullptr) {
-        std::cout << "There is no memory";
-        return 0;
-    }
-    std::strcpy((pElem->mpInfo.mAuthor), "Kostenko");
-    std::strcpy((pElem->mpInfo.mNameBook), "Marysya");
-    pElem->mpInfo.mYear = 1961;
-    pElem->mpInfo.mPages = 180;
-    pElem->mpInfo.mPrice = 220;
-    pElem->mpNext = nullptr;
+    std::cout << "\n--- After Deleting authors starting with 'K' ---";
+    deleteByAuthor(head, 'K');
+    printList(head);
 
-    std::cout << "\nAfter Adding";
-    ListAddElem(&pHead, pElem);
-    printList(pHead);
+    // Використання нової функції для додавання
+    Book newBook = {"Kostenko", "Marysya", 1961, 180, 220};
+    std::cout << "\n--- After Adding new book ---";
+    insertNewBook(head, newBook);
+    printList(head);
 
-    freeList(&pHead);
+    freeList(head);
 
     return 0;
 }
